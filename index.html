@@ -86,17 +86,19 @@
         hora: document.getElementById('hora').value
       };
 
-      // Define o callback primeiro
+      // Define o callback ANTES de solicitar o token
       tokenClient.callback = async (resp) => {
-        if (resp.access_token) {
-          accessToken = resp.access_token;
-          await criarEvento();
-        } else {
-          alert('Erro na autenticação Google.');
+        if (resp.error || !resp.access_token) {
+          // Falhou? Força login com consentimento
+          tokenClient.requestAccessToken({ prompt: 'consent' });
+          return;
         }
+
+        accessToken = resp.access_token;
+        await criarEvento();
       };
 
-      // Tenta login silencioso
+      // Tenta login automático silencioso
       tokenClient.requestAccessToken({ prompt: 'none' });
     });
 
@@ -104,7 +106,7 @@
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: 'https://www.googleapis.com/auth/calendar.events',
-        callback: (resp) => {} // sobrescrito no submit
+        callback: () => {} // será substituído no submit
       });
     }
 
