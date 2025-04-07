@@ -72,13 +72,16 @@
     let formData = null;
     let tokenClient = null;
 
+    // Transforma nome digitado em maiúsculo
     document.getElementById("nome").addEventListener("input", (e) => {
       e.target.value = e.target.value.toUpperCase();
     });
 
+    // Quando clica em Agendar
     document.getElementById('form-agendamento').addEventListener('submit', async function (e) {
       e.preventDefault();
 
+      // Coleta os dados do formulário
       formData = {
         nome: document.getElementById('nome').value.trim(),
         telefone: document.getElementById('telefone').value.trim(),
@@ -86,30 +89,33 @@
         hora: document.getElementById('hora').value
       };
 
-      // Define o callback ANTES de solicitar o token
+      // Define o callback que será chamado após obter o token
       tokenClient.callback = async (resp) => {
+        // Se falhou o login automático, força abrir o popup
         if (resp.error || !resp.access_token) {
-          // Falhou? Força login com consentimento
           tokenClient.requestAccessToken({ prompt: 'consent' });
           return;
         }
 
+        // Se deu certo, salva o token e agenda a consulta
         accessToken = resp.access_token;
         await criarEvento();
       };
 
-      // Tenta login automático silencioso
+      // Primeira tentativa: login automático silencioso
       tokenClient.requestAccessToken({ prompt: 'none' });
     });
 
+    // Inicializa o cliente OAuth
     function iniciarClienteGoogle() {
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: 'https://www.googleapis.com/auth/calendar.events',
-        callback: () => {} // será substituído no submit
+        callback: () => {} // será substituído no momento do agendamento
       });
     }
 
+    // Cria o evento no Google Calendar
     async function criarEvento() {
       const { nome, telefone, data, hora } = formData;
       const inicio = new Date(`${data}T${hora}`);
@@ -144,11 +150,14 @@
         const mensagem = `Olá ${nome}! Sua consulta foi agendada com sucesso para o dia ${dataFormatada} às ${hora}, na clínica da Ótica Vista Linda. Qualquer dúvida estamos por aqui! 👓📍`;
         const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
 
+        // Abre o WhatsApp Web
         setTimeout(() => {
           window.open(link, '_blank');
         }, 500);
 
         alert('Consulta agendada com sucesso! Você será redirecionado para o WhatsApp.');
+
+        // Limpa o formulário
         document.getElementById('form-agendamento').reset();
         accessToken = null;
 
@@ -158,6 +167,7 @@
       }
     }
 
+    // Inicia o cliente quando a página carrega
     window.onload = () => iniciarClienteGoogle();
   </script>
 </body>
