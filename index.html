@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agendamento de Consulta</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js"></script>
   <style>
@@ -71,38 +71,13 @@
     const CLIENT_ID = '1098349928690-l702hc6mvlu7qf3sl8skb3mub2tpv8g5.apps.googleusercontent.com';
     const API_KEY = 'AIzaSyACYB3cNBQnLbvGz1Cs0le6XIb8UhTGAJg';
     const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+
     let tokenClient;
     let formData = null;
 
     document.getElementById("nome").addEventListener("input", (e) => {
       e.target.value = e.target.value.toUpperCase();
     });
-
-    function gapiLoaded() {
-      gapi.load('client', initializeGapiClient);
-    }
-
-    async function initializeGapiClient() {
-      await gapi.client.init({
-        apiKey: API_KEY,
-        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
-      });
-    }
-
-    function gisLoaded() {
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: async (resp) => {
-          const token = gapi.client.getToken();
-          if (resp.error || !token) {
-            tokenClient.requestAccessToken({ prompt: 'consent' });
-            return;
-          }
-          await criarEvento(formData);
-        }
-      });
-    }
 
     async function criarEvento({ nome, telefone, data, hora }) {
       try {
@@ -149,12 +124,30 @@
       const hora = document.getElementById('hora').value;
 
       formData = { nome, telefone, data, hora };
-      tokenClient.requestAccessToken({ prompt: 'none' }); // tenta silencioso primeiro
+
+      tokenClient.requestAccessToken({ prompt: 'none' });
     });
 
     window.onload = function () {
-      gapiLoaded();
-      gisLoaded();
+      gapi.load('client', async () => {
+        await gapi.client.init({
+          apiKey: API_KEY,
+          discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
+        });
+
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES,
+          callback: async (resp) => {
+            const token = gapi.client.getToken();
+            if (resp.error || !token) {
+              tokenClient.requestAccessToken({ prompt: 'consent' });
+              return;
+            }
+            await criarEvento(formData);
+          }
+        });
+      });
     };
   </script>
 </body>
