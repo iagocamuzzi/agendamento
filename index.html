@@ -70,6 +70,7 @@
     const CLIENT_ID = '1098349928690-l702hc6mvlu7qf3sl8skb3mub2tpv8g5.apps.googleusercontent.com';
     let accessToken = null;
     let formData = null;
+    let tokenClient = null;
 
     document.getElementById("nome").addEventListener("input", (e) => {
       e.target.value = e.target.value.toUpperCase();
@@ -85,26 +86,26 @@
         hora: document.getElementById('hora').value
       };
 
-      if (!accessToken) {
-        iniciarLoginGoogle();
-      } else {
-        await criarEvento();
-      }
+      // Define o callback primeiro
+      tokenClient.callback = async (resp) => {
+        if (resp.access_token) {
+          accessToken = resp.access_token;
+          await criarEvento();
+        } else {
+          alert('Erro na autenticação Google.');
+        }
+      };
+
+      // Tenta login silencioso
+      tokenClient.requestAccessToken({ prompt: 'none' });
     });
 
-    function iniciarLoginGoogle() {
-      google.accounts.oauth2.initTokenClient({
+    function iniciarClienteGoogle() {
+      tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: 'https://www.googleapis.com/auth/calendar.events',
-        callback: async (response) => {
-          if (response.access_token) {
-            accessToken = response.access_token;
-            await criarEvento();
-          } else {
-            alert('Erro ao autenticar com o Google.');
-          }
-        }
-      }).requestAccessToken();
+        callback: (resp) => {} // sobrescrito no submit
+      });
     }
 
     async function criarEvento() {
@@ -135,27 +136,27 @@
           body: JSON.stringify(evento)
         });
 
-        if (!response.ok) throw new Error('Erro ao criar o evento');
+        if (!response.ok) throw new Error('Erro ao criar evento');
 
         const dataFormatada = data.split("-").reverse().join("/");
         const mensagem = `Olá ${nome}! Sua consulta foi agendada com sucesso para o dia ${dataFormatada} às ${hora}, na clínica da Ótica Vista Linda. Qualquer dúvida estamos por aqui! 👓📍`;
         const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
 
-        // ⚠️ Força o navegador a abrir após a execução do fetch
         setTimeout(() => {
           window.open(link, '_blank');
         }, 500);
 
         alert('Consulta agendada com sucesso! Você será redirecionado para o WhatsApp.');
-
         document.getElementById('form-agendamento').reset();
-        accessToken = null; // Força novo login na próxima vez
+        accessToken = null;
 
       } catch (err) {
         console.error(err);
-        alert('Erro ao criar o evento no Google Calendar.');
+        alert('Erro ao criar o evento. Tente novamente.');
       }
     }
+
+    window.onload = () => iniciarClienteGoogle();
   </script>
 </body>
 </html>
