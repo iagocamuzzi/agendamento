@@ -72,10 +72,10 @@
     const API_KEY = 'AIzaSyACYB3cNBQnLbvGz1Cs0le6XIb8UhTGAJg';
     const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
     let tokenClient;
+    let formData = null;
 
-    const nomeInput = document.getElementById("nome");
-    nomeInput.addEventListener("input", () => {
-      nomeInput.value = nomeInput.value.toUpperCase();
+    document.getElementById("nome").addEventListener("input", (e) => {
+      e.target.value = e.target.value.toUpperCase();
     });
 
     function gapiLoaded() {
@@ -93,8 +93,51 @@
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
-        callback: '', // será definido no submit
+        callback: async (resp) => {
+          const token = gapi.client.getToken();
+          if (resp.error || !token) {
+            tokenClient.requestAccessToken({ prompt: 'consent' });
+            return;
+          }
+          await criarEvento(formData);
+        }
       });
+    }
+
+    async function criarEvento({ nome, telefone, data, hora }) {
+      try {
+        const inicio = new Date(`${data}T${hora}`);
+        const fim = new Date(inicio.getTime() + 30 * 60000);
+
+        const evento = {
+          summary: `Consulta: ${nome}`,
+          description: `Telefone: ${telefone}`,
+          start: {
+            dateTime: inicio.toISOString(),
+            timeZone: 'America/Sao_Paulo'
+          },
+          end: {
+            dateTime: fim.toISOString(),
+            timeZone: 'America/Sao_Paulo'
+          }
+        };
+
+        await gapi.client.calendar.events.insert({
+          calendarId: 'primary',
+          resource: evento
+        });
+
+        const dataFormatada = data.split("-").reverse().join("/");
+        const mensagem = `Olá ${nome}! Sua consulta foi agendada com sucesso para o dia ${dataFormatada} às ${hora}, na clínica da Ótica Vista Linda. Qualquer dúvida estamos por aqui! 👓📍`;
+        const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
+        window.open(link, '_blank');
+
+        alert('Consulta agendada e mensagem enviada via WhatsApp!');
+        document.getElementById('form-agendamento').reset();
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao criar o evento.');
+      }
     }
 
     document.getElementById('form-agendamento').addEventListener('submit', function (e) {
@@ -105,51 +148,8 @@
       const data = document.getElementById('data').value;
       const hora = document.getElementById('hora').value;
 
-      const inicio = new Date(`${data}T${hora}`);
-      const fim = new Date(inicio.getTime() + 30 * 60000); // 30 minutos
-
-      tokenClient.callback = async (resp) => {
-        const token = gapi.client.getToken();
-        if (resp.error || !token) {
-          // Se o login silencioso falhar, tenta com consentimento
-          tokenClient.requestAccessToken({ prompt: 'consent' });
-          return;
-        }
-
-        try {
-          const evento = {
-            summary: `Consulta: ${nome}`,
-            description: `Telefone: ${telefone}`,
-            start: {
-              dateTime: inicio.toISOString(),
-              timeZone: 'America/Sao_Paulo'
-            },
-            end: {
-              dateTime: fim.toISOString(),
-              timeZone: 'America/Sao_Paulo'
-            }
-          };
-
-          await gapi.client.calendar.events.insert({
-            calendarId: 'primary',
-            resource: evento
-          });
-
-          const dataFormatada = data.split("-").reverse().join("/");
-          const mensagem = `Olá ${nome}, sua consulta foi agendada com sucesso para o dia ${dataFormatada} às ${hora}.`;
-          const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
-          window.open(link, '_blank');
-
-          alert('Consulta agendada e mensagem enviada via WhatsApp!');
-          document.getElementById('form-agendamento').reset();
-        } catch (err) {
-          console.error(err);
-          alert('Erro ao criar o evento.');
-        }
-      };
-
-      // Primeira tentativa com login automático
-      tokenClient.requestAccessToken({ prompt: 'none' });
+      formData = { nome, telefone, data, hora };
+      tokenClient.requestAccessToken({ prompt: 'none' }); // tenta silencioso primeiro
     });
 
     window.onload = function () {
