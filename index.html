@@ -125,6 +125,16 @@
 
       formData = { nome, telefone, data, hora };
 
+      // Define o callback ANTES de chamar o token
+      tokenClient.callback = async (resp) => {
+        const token = gapi.client.getToken();
+        if (resp.error || !token) {
+          tokenClient.requestAccessToken({ prompt: 'consent' });
+          return;
+        }
+        await criarEvento(formData);
+      };
+
       tokenClient.requestAccessToken({ prompt: 'none' });
     });
 
@@ -138,14 +148,7 @@
         tokenClient = google.accounts.oauth2.initTokenClient({
           client_id: CLIENT_ID,
           scope: SCOPES,
-          callback: async (resp) => {
-            const token = gapi.client.getToken();
-            if (resp.error || !token) {
-              tokenClient.requestAccessToken({ prompt: 'consent' });
-              return;
-            }
-            await criarEvento(formData);
-          }
+          callback: '' // será definido no submit
         });
       });
     };
