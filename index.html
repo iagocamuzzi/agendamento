@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Agendamento de Consulta</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f4f4f4;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 14px;
+      margin: 10px 0;
+      font-size: 16px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Agende sua Consulta</h2>
+    <form id="form-agendamento">
+      <input type="text" id="nome" placeholder="Nome" required />
+      <input type="tel" id="telefone" placeholder="Telefone (apenas números)" required />
+      <input type="date" id="data" required />
+      <input type="time" id="hora" required />
+      <button type="submit">Agendar</button>
+    </form>
+  </div>
+
+  <script>
+    const CLIENT_ID = '1098349928690-l702hc6mvlu7qf3sl8skb3mub2tpv8g5.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyACYB3cNBQnLbvGz1Cs0le6XIb8UhTGAJg';
+    const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+    let tokenClient;
+
+    const nomeInput = document.getElementById("nome");
+    nomeInput.addEventListener("input", () => {
+      nomeInput.value = nomeInput.value.toUpperCase();
+    });
+
+    function gapiLoaded() {
+      gapi.load('client', initializeGapiClient);
+    }
+
+    async function initializeGapiClient() {
+      await gapi.client.init({
+        apiKey: API_KEY,
+        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
+      });
+    }
+
+    function gisLoaded() {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: '', // será definido no submit
+      });
+    }
+
+    document.getElementById('form-agendamento').addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const nome = document.getElementById('nome').value.trim();
+      const telefone = document.getElementById('telefone').value.trim();
+      const data = document.getElementById('data').value;
+      const hora = document.getElementById('hora').value;
+
+      const inicio = new Date(`${data}T${hora}`);
+      const fim = new Date(inicio.getTime() + 30 * 60000); // 30 minutos
+
+      tokenClient.callback = async (resp) => {
+        const token = gapi.client.getToken();
+        if (resp.error || !token) {
+          // Se o login silencioso falhar, tenta com consentimento
+          tokenClient.requestAccessToken({ prompt: 'consent' });
+          return;
+        }
+
+        try {
+          const evento = {
+            summary: `Consulta: ${nome}`,
+            description: `Telefone: ${telefone}`,
+            start: {
+              dateTime: inicio.toISOString(),
+              timeZone: 'America/Sao_Paulo'
+            },
+            end: {
+              dateTime: fim.toISOString(),
+              timeZone: 'America/Sao_Paulo'
+            }
+          };
+
+          await gapi.client.calendar.events.insert({
+            calendarId: 'primary',
+            resource: evento
+          });
+
+          const dataFormatada = data.split("-").reverse().join("/");
+          const mensagem = `Olá ${nome}, sua consulta foi agendada com sucesso para o dia ${dataFormatada} às ${hora}.`;
+          const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
+          window.open(link, '_blank');
+
+          alert('Consulta agendada e mensagem enviada via WhatsApp!');
+          document.getElementById('form-agendamento').reset();
+        } catch (err) {
+          console.error(err);
+          alert('Erro ao criar o evento.');
+        }
+      };
+
+      // Primeira tentativa com login automático
+      tokenClient.requestAccessToken({ prompt: 'none' });
+    });
+
+    window.onload = function () {
+      gapiLoaded();
+      gisLoaded();
+    };
+  </script>
+</body>
+</html>
