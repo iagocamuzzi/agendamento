@@ -140,11 +140,16 @@
         const dataFormatada = data.split("-").reverse().join("/");
         const mensagem = `Olá ${nome}! Sua consulta foi agendada com sucesso para o dia ${dataFormatada} às ${hora}, na clínica da Ótica Vista Linda. Qualquer dúvida estamos por aqui! 👓📍`;
         const link = `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`;
-        window.open(link, '_blank');
 
-        alert('Consulta agendada e mensagem enviada via WhatsApp!');
+        // ⚠️ Força o navegador a abrir após a execução do fetch
+        setTimeout(() => {
+          window.open(link, '_blank');
+        }, 500);
+
+        alert('Consulta agendada com sucesso! Você será redirecionado para o WhatsApp.');
+
         document.getElementById('form-agendamento').reset();
-        accessToken = null; // força novo login na próxima vez
+        accessToken = null; // Força novo login na próxima vez
 
       } catch (err) {
         console.error(err);
