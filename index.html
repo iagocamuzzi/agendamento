@@ -68,47 +68,55 @@
 
   <script>
     const CLIENT_ID = '1098349928690-l702hc6mvlu7qf3sl8skb3mub2tpv8g5.apps.googleusercontent.com';
-    let accessToken = null;
-    let formData = null;
-    let tokenClient = null;
+    const EXPIRACAO_TOKEN_HORAS = 10;
+    let tokenClient;
+    let accessToken = sessionStorage.getItem('accessToken');
+    let tokenTime = parseInt(sessionStorage.getItem('tokenTime'), 10);
 
-    // Transforma o nome em maiúsculas enquanto digita
     document.getElementById("nome").addEventListener("input", (e) => {
       e.target.value = e.target.value.toUpperCase();
     });
 
-    // Ao enviar o formulário
     document.getElementById('form-agendamento').addEventListener('submit', async function (e) {
       e.preventDefault();
 
-      formData = {
+      const formData = {
         nome: document.getElementById('nome').value.trim(),
         telefone: document.getElementById('telefone').value.trim(),
         data: document.getElementById('data').value,
         hora: document.getElementById('hora').value
       };
 
-      // Se ainda não tem token, solicita com popup
-      if (!accessToken) {
+      if (!accessToken || !tokenTime || tokenExpirado()) {
         tokenClient.callback = async (resp) => {
           if (resp.error || !resp.access_token) {
-            alert("Erro no login com a conta Google.");
+            alert("Erro ao autenticar. Tente novamente.");
             return;
           }
+
           accessToken = resp.access_token;
-          await criarEvento();
+          tokenTime = Date.now();
+          sessionStorage.setItem('accessToken', accessToken);
+          sessionStorage.setItem('tokenTime', tokenTime.toString());
+
+          await criarEvento(formData);
         };
+
         tokenClient.requestAccessToken({ prompt: 'consent' });
       } else {
-        await criarEvento();
+        await criarEvento(formData);
       }
     });
 
-    // Criação do evento no Google Calendar
-    async function criarEvento() {
-      const { nome, telefone, data, hora } = formData;
+    function tokenExpirado() {
+      const agora = Date.now();
+      const expiracao = EXPIRACAO_TOKEN_HORAS * 60 * 60 * 1000; // ms
+      return !tokenTime || agora - tokenTime > expiracao;
+    }
+
+    async function criarEvento({ nome, telefone, data, hora }) {
       const inicio = new Date(`${data}T${hora}`);
-      const fim = new Date(inicio.getTime() + 30 * 60000); // 30 min
+      const fim = new Date(inicio.getTime() + 30 * 60000);
 
       const evento = {
         summary: `Consulta: ${nome}`,
@@ -133,7 +141,7 @@
           body: JSON.stringify(evento)
         });
 
-        if (!response.ok) throw new Error('Erro ao criar evento');
+        if (!response.ok) throw new Error('Erro ao criar o evento');
 
         const dataFormatada = data.split("-").reverse().join("/");
         const mensagem = `Olá ${nome}! Sua consulta foi agendada com sucesso para o dia ${dataFormatada} às ${hora}, na clínica da Ótica Vista Linda. Qualquer dúvida estamos por aqui! 👓📍`;
@@ -143,31 +151,21 @@
           window.open(link, '_blank');
         }, 500);
 
-        alert('Consulta agendada com sucesso! Você será redirecionado para o WhatsApp.');
-
+        alert('Consulta agendada com sucesso! Redirecionando para o WhatsApp...');
         document.getElementById('form-agendamento').reset();
-        accessToken = null;
 
       } catch (err) {
         console.error(err);
-        alert('Erro ao criar o evento. Tente novamente.');
+        alert('Erro ao criar o evento.');
       }
     }
 
-    // Inicia o token client e tenta login silencioso ao carregar
     window.onload = () => {
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: 'https://www.googleapis.com/auth/calendar.events',
-        callback: async (resp) => {
-          if (resp.access_token) {
-            accessToken = resp.access_token;
-          }
-        }
+        callback: () => {} // será sobrescrito no submit
       });
-
-      // Tenta login silencioso na inicialização
-      tokenClient.requestAccessToken({ prompt: 'none' });
     };
   </script>
 </body>
